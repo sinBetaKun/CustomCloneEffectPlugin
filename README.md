@@ -54,6 +54,9 @@
 
   ![image](https://github.com/user-attachments/assets/42050f71-86d9-4f78-a4c0-90e7d516d7ef)
 
+### 紹介・使い方解説動画
+　<| 少々お待ちください... |>
+ 
 ---
 
 ### 作ったきっかけ
