@@ -60,7 +60,9 @@
 ### 不具合，問題，要望がある場合
 　[X(旧Twitter)にてDMください](https://twitter.com/sinBetaKun)。また，Discordで私と何らかのつながりがあるなら，DiscordでもDMしちゃって構いません。**ただし私が不快に感じることをDMで繰り返すようであれば容赦なくブロックしますのでご注意ください。**
 
-## sinβ のDiscordサーバー『<| WAVER |>』
+---
+
+### sinβ のDiscordサーバー『<| WAVER |>』
 参加する場合はルールはしっかり守りましょう。メンバー認証には半日以上待つ場合がほとんどですので，承知の上で申請してください。
 
 https://discord.gg/pCtyFvjEcj
