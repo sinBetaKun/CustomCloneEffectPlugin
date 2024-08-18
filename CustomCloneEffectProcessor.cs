@@ -1,9 +1,12 @@
-﻿using System;
+﻿using CustomCloneEffectPlugin;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
+using Vortice;
 using Vortice.Direct2D1;
 using Vortice.Direct2D1.Effects;
 using YukkuriMovieMaker.Commons;
@@ -19,34 +22,24 @@ namespace CustumCloneEffectPlugin
     internal class CustomCloneEffectProcessor : IVideoEffectProcessor
     {
         readonly CustomCloneEffect item;
-
         readonly AffineTransform2D transformEffect;
-
-        readonly ID2D1Image? output;
-
         IGraphicsDevicesAndContext devices;
-
         ID2D1CommandList? commandList = null;
-
         ID2D1Image? input;
-
         bool isFirst = true;
 
-        public ID2D1Image Output => output ?? input ?? throw new NullReferenceException();
-
+        public ID2D1Image Output { get; }
+        /*
+        readonly List<Crop> cropEffects;
         readonly List<AffineTransform2D> transforms;
         readonly List<Opacity> opacityEffects;
+        readonly List<GaussianBlur> blurEffects;
         readonly List<ID2D1Image?> outputs;
-        private bool[] appear_Array;
-        private double[] dstX_Array;
-        private double[] dstY_Array;
-        private double[] opacity_Array;
-        private double[] scale_Array;
-        private double[] rotate_Array;
-        private bool[] mirror_Array;
-        private double[] cntX_Array;
-        private double[] cntY_Array;
+         */
+        private List<CloneNode> CloneNodes = [];
         private int numOfClones = 0;
+
+        RawRectF inputRect;
 
 
         public CustomCloneEffectProcessor(IGraphicsDevicesAndContext devices, CustomCloneEffect item)
@@ -54,20 +47,14 @@ namespace CustumCloneEffectPlugin
             this.item = item;
 
             this.devices = devices;
+            /*
+            cropEffects = new List<Crop>();
             transformEffect = new AffineTransform2D(devices.DeviceContext);//Outputのインスタンスを固定するために、間にエフェクトを挟む
             opacityEffects = new List<Opacity>();
-            transforms = new List<AffineTransform2D>();
-            outputs = new List<ID2D1Image?>();
-            appear_Array = [];
-            dstX_Array = [];
-            dstY_Array = [];
-            opacity_Array = [];
-            scale_Array = [];
-            rotate_Array = [];
-            mirror_Array = [];
-            cntX_Array = [];
-            cntY_Array = [];
-            output = transformEffect.Output;//EffectからgetしたOutputは必ずDisposeする必要がある。Effect側では開放されない。
+            blurEffects = new List<GaussianBlur>();
+            */
+            transformEffect = new AffineTransform2D(devices.DeviceContext);//Outputのインスタンスを固定するために、間にエフェクトを挟む
+            Output = transformEffect.Output;//EffectからgetしたOutputは必ずDisposeする必要がある。Effect側では開放されない。
         }
 
         public DrawDescription Update(EffectDescription effectDescription)
@@ -76,8 +63,12 @@ namespace CustumCloneEffectPlugin
             var length = effectDescription.ItemDuration.Frame;
             var fps = effectDescription.FPS;
 
-            if (updateVectors(frame, length, fps))
+            if (updateClonesValues(frame, length, fps))
             {
+                commandList?.Dispose();
+
+                UpdateParentPaths();
+
                 updateOutputs();
 
                 setCommandList();
@@ -86,6 +77,71 @@ namespace CustumCloneEffectPlugin
             isFirst = false;
 
             return effectDescription.DrawDescription;
+        }
+
+        private void UpdateParentPaths()
+        {
+            List<CloneNode> independent = [];
+            List<CloneNode> parents = [];
+            List<CloneNode> children = [];
+            int numOfChildren = 0;
+            
+            foreach(var cloneNode in CloneNodes)
+            {
+                cloneNode.ParentPath = [];
+                if (cloneNode.Parent == string.Empty)
+                {
+                    if (cloneNode.TagName == string.Empty || cloneNode.TagName == cloneNode.Parent) independent.Add(cloneNode);
+                    else parents.Add(cloneNode);
+                }
+                else
+                {
+                    children.Add(cloneNode);
+                    numOfChildren++;
+                }
+            }
+
+            while(numOfChildren > 0)
+            {
+
+                for(int i = 0;i < children.Count;)
+                {
+                    var matched = from x in parents 
+                                  where (x.TagName == children[i].Parent) select x;
+
+                    if (matched.Count() > 0)
+                    {
+                        children[i].ParentPath = matched.First().ParentPath.Add(matched.First());
+                        parents.Add(children[i]);
+                        children.RemoveAt(i);
+                    }
+                    else i++;
+                }
+
+                if (numOfChildren == children.Count) break;
+                numOfChildren = children.Count;
+            }
+            /*
+            foreach(var cloneNode in CloneNodes)
+            {
+                double x = 0, y = 0, scale = 1, opacity = 1, rotate = 0;
+                var path = cloneNode.ParentPath.Add(cloneNode);
+                foreach (var node in path)
+                {
+                    double x2 = node.Dst_X + node.Cnt_X, y2 = node.Dst_Y + node.Cnt_Y;
+                    float rotate2 = (float)((rotate % 360) * Math.PI / 180);
+                    x += (float)(scale * (x2 * Math.Cos(rotate2) - y2 * Math.Sin(rotate2)));
+                    y += (float)(scale * (x2 * Math.Sin(rotate2) + y2 * Math.Cos(rotate2)));
+                    opacity = ((node.OpacityDependent) ? opacity : 1) * node.Opacity / 100;
+                    scale = ((node.ScaleDependent) ? scale : 1) * node.Scale / 100;
+                    rotate = ((node.RotateDependent) ? rotate : 0) + node.Rotate;
+                }
+                cloneNode.Shift = new Vector2 ((float)x, (float)y);
+                cloneNode.Opacity2 = opacity;
+                cloneNode.Scale2 = scale;
+                cloneNode.Rotate2 = (rotate % 360) * Math.PI / 180;
+            }
+             */
         }
 
         private void setCommandList()
@@ -98,9 +154,148 @@ namespace CustumCloneEffectPlugin
 
             for (int i = 0; i < numOfClones; i++)
             {
-                if (appear_Array[i])
-                    if (outputs[i] is ID2D1Image output)
-                        dc.DrawImage(output, new Vector2((float)dstX_Array[i], (float)dstY_Array[i]), compositeMode: CompositeMode.SourceOver);
+                if (CloneNodes[i].Appear)
+                {
+                    if (CloneNodes[i].Output is ID2D1Image output)
+                    {
+                        var vec2 = CloneNodes[i].Shift;
+                        switch (CloneNodes[i].BlendMode)
+                        {
+                            case BlendModeCCE.SourceOver:
+                                dc.DrawImage(output, vec2, compositeMode: CompositeMode.SourceOver);
+                                break;
+
+                            case BlendModeCCE.Plus:
+                                dc.DrawImage(output, vec2, compositeMode: CompositeMode.Plus);
+                                break;
+
+                            case BlendModeCCE.DestinationOver:
+                                dc.DrawImage(output, vec2, compositeMode: CompositeMode.DestinationOver);
+                                break;
+
+                            case BlendModeCCE.DestinationOut:
+                                dc.DrawImage(output, vec2, compositeMode: CompositeMode.DestinationOut);
+                                break;
+
+                            case BlendModeCCE.SourceAtop:
+                                dc.DrawImage(output, vec2, compositeMode: CompositeMode.SourceAtop);
+                                break;
+
+                            case BlendModeCCE.XOR:
+                                dc.DrawImage(output, vec2, compositeMode: CompositeMode.Xor);
+                                break;
+
+                            case BlendModeCCE.MaskInverseErt:
+                                dc.DrawImage(output, vec2, compositeMode: CompositeMode.MaskInverseErt);
+                                break;
+
+                            case BlendModeCCE.Multiply:
+                                dc.BlendImage(output, BlendMode.Multiply, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Screen:
+                                dc.BlendImage(output, BlendMode.Screen, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Darken:
+                                dc.BlendImage(output, BlendMode.Darken, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Lighten:
+                                dc.BlendImage(output, BlendMode.Lighten, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Dissolve:
+                                dc.BlendImage(output, BlendMode.Dissolve, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.ColorBurn:
+                                dc.BlendImage(output, BlendMode.ColorBurn, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.LinearBurn:
+                                dc.BlendImage(output, BlendMode.LinearBurn, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.DarkerColor:
+                                dc.BlendImage(output, BlendMode.DarkerColor, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.LighterColor:
+                                dc.BlendImage(output, BlendMode.LighterColor, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.ColorDodge:
+                                dc.BlendImage(output, BlendMode.ColorDodge, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.LinearDodge:
+                                dc.BlendImage(output, BlendMode.LinearDodge, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Overlay:
+                                dc.BlendImage(output, BlendMode.Overlay, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.SoftLight:
+                                dc.BlendImage(output, BlendMode.SoftLight, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.HardLight:
+                                dc.BlendImage(output, BlendMode.HardLight, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.VividLight:
+                                dc.BlendImage(output, BlendMode.VividLight, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.LinearLight:
+                                dc.BlendImage(output, BlendMode.LinearLight, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.PinLight:
+                                dc.BlendImage(output, BlendMode.PinLight, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.HardMix:
+                                dc.BlendImage(output, BlendMode.HardMix, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Difference:
+                                dc.BlendImage(output, BlendMode.Difference, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Exclusion:
+                                dc.BlendImage(output, BlendMode.Exclusion, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Hue:
+                                dc.BlendImage(output, BlendMode.Hue, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Saturation:
+                                dc.BlendImage(output, BlendMode.Saturation, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Color:
+                                dc.BlendImage(output, BlendMode.Color, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Luminosity:
+                                dc.BlendImage(output, BlendMode.Luminosity, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Subtract:
+                                dc.BlendImage(output, BlendMode.Subtract, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+
+                            case BlendModeCCE.Division:
+                                dc.BlendImage(output, BlendMode.Division, vec2, null, InterpolationMode.MultiSampleLinear);
+                                break;
+                        }
+
+                    }
+                }
             }
 
             dc.EndDraw();
@@ -110,67 +305,12 @@ namespace CustumCloneEffectPlugin
 
         private void updateOutputs()
         {
-            while (transforms.Count < numOfClones)
-            {
-                transforms.Add(new AffineTransform2D(devices.DeviceContext));
-                transforms.Last().SetInput(0, input, true);
-            }
-            while (transforms.Count > numOfClones)
-            {
-                transforms.Last().SetInput(0, null, true);
-                transforms.Last().Dispose();
-                transforms.Remove(transforms.Last());
-            }
+            foreach (var cloneNode in CloneNodes)
+                cloneNode.CommitOutput(input);
 
-            for (int i = 0;i < numOfClones; i++)
-            {
-                transforms[i] = new AffineTransform2D(devices.DeviceContext);
-                transforms[i].SetInput(0, input, true);
-
-                var result = (mirror_Array[i])?new Matrix3x2(-1, 0, 0, 1, 2 * (float)cntX_Array[i], 0) :Matrix3x2.Identity;
-
-                float rotate = (float)(rotate_Array[i] % 360 * Math.PI / 180.0);
-                if(rotate != 0.0)
-                    result *= Matrix3x2.CreateRotation(rotate, new Vector2((float)cntX_Array[i], (float)cntY_Array[i]));
-
-                float scale = (float)(scale_Array[i] / 100.0);
-                if(scale != 1.0)
-                    result *= Matrix3x2.CreateScale(scale, new Vector2((float)cntX_Array[i], (float)cntY_Array[i]));
-                    
-                transforms[i].TransformMatrix = result;
-            }
-
-            while (opacityEffects.Count < numOfClones)
-            {
-                opacityEffects.Add(new Opacity(devices.DeviceContext));
-                opacityEffects.Last().SetInput(0, null, true);
-            }
-            while (opacityEffects.Count > numOfClones)
-            {
-                opacityEffects.Last().SetInput(0, null, true);
-                opacityEffects.Last().Dispose();
-                opacityEffects.Remove(opacityEffects.Last());
-            }
-
-            for(int i = 0; i < numOfClones; i++)
-            {
-                opacityEffects[i].SetInput(0, transforms[i].Output, true);
-                opacityEffects[i].Value = (float)(opacity_Array[i] / 100.0);
-            }
-
-            while (outputs.Count > numOfClones)
-            {
-                if (outputs[numOfClones] is ID2D1Image output) output.Dispose();
-                outputs.RemoveAt(numOfClones);
-            }
-            for (int i = 0; i < numOfClones; i++)
-            {
-                if (outputs.Count < i + 1) outputs.Add(opacityEffects[i].Output);
-                else outputs[i] = opacityEffects[i].Output;
-            }
         }
 
-        private bool updateVectors(long frame, long length, int fps)
+        private bool updateClonesValues(long frame, long length, int fps)
         {
             bool isOld = false;
 
@@ -178,68 +318,25 @@ namespace CustumCloneEffectPlugin
             {
                 isOld = true;
                 numOfClones = item.Clones.Count;
-                appear_Array = new bool[numOfClones];
-                dstX_Array = new double[numOfClones];
-                dstY_Array = new double[numOfClones];
-                opacity_Array = new double[numOfClones];
-                scale_Array = new double[numOfClones];
-                rotate_Array = new double[numOfClones];
-                mirror_Array = new bool[numOfClones];
-                cntX_Array = new double[numOfClones];
-                cntY_Array = new double[numOfClones];
+                RemoveNodes(0);
+                for (int i = 0; i < numOfClones; i++)
+                    CloneNodes.Add(new CloneNode(devices, item.Clones[i], length, frame, fps));
             }
             else
             {
                 for (int i = 0; i < numOfClones; i++)
                 {
-                    var clone = item.Clones[i];
-                    var appear = clone.Appear;
-                    var dstX = clone.Dst_X.GetValue(frame, length, fps);
-                    var dstY = clone.Dst_Y.GetValue(frame, length, fps);
-                    var opacity = clone.Opacity.GetValue(frame, length, fps);
-                    var scale = clone.Scale.GetValue(frame, length, fps);
-                    var rotate = clone.Rotate.GetValue(frame, length, fps);
-                    var mirror = (clone.Mirror.GetValue(frame, length, fps) > 0.5);
-                    var cntX = clone.Cnt_X.GetValue(frame, length, fps);
-                    var cntY = clone.Cnt_Y.GetValue(frame, length, fps);
-
-                    if (appear != appear_Array[i])
+                    if(CloneNodes[i].Update(item.Clones[i], length, frame, fps))
                     {
                         isOld = true;
-                        break;
-                    }
-
-                    if (appear)
-                    {
-                        if (dstX_Array[i] != dstX || dstY_Array[i] != dstY || opacity_Array[i] != opacity || scale_Array[i] != scale || rotate_Array[i] != rotate || mirror_Array[i] != mirror || cntX_Array[i] != cntX || cntY_Array[i] != cntY)
-                        {
-                            isOld = true;
-                            break;
-                        }
                     }
                 }
-            }
+                var defRect = devices.DeviceContext.GetImageLocalBounds(input);
+                if (!defRect.Equals(inputRect))
+                    isOld = true;
 
-            if (isOld)
-            {
-                for (int i = 0; i < numOfClones; i++)
-                {
-                    var clone = item.Clones[i];
-                    appear_Array[i] = clone.Appear;
-                    if (clone.Appear)
-                    {
-                        dstX_Array[i] = clone.Dst_X.GetValue(frame, length, fps);
-                        dstY_Array[i] = clone.Dst_Y.GetValue(frame, length, fps);
-                        opacity_Array[i] = clone.Opacity.GetValue(frame, length, fps);
-                        scale_Array[i] = clone.Scale.GetValue(frame, length, fps);
-                        rotate_Array[i] = clone.Rotate.GetValue(frame, length, fps);
-                        mirror_Array[i] = (clone.Mirror.GetValue(frame, length, fps) > 0.5);
-                        cntX_Array[i] = clone.Cnt_X.GetValue(frame, length, fps);
-                        cntY_Array[i] = clone.Cnt_Y.GetValue(frame, length, fps);
-                    }
-                }
+                inputRect = defRect;
             }
-
             return isOld;
         }
 
@@ -248,35 +345,30 @@ namespace CustumCloneEffectPlugin
             input = null;
             transformEffect.SetInput(0, null, true);
             commandList?.Dispose();//前回のUpdateで作成したCommandListを破棄する
-            DisposeOutputs(0);
+            RemoveNodes(0);
         }
 
         public void SetInput(ID2D1Image input)
         {
+            commandList?.Dispose();
+
             this.input = input;
+
+            numOfClones = 0;
+
+            UpdateParentPaths();
+
             updateOutputs();
 
             setCommandList();
         }
 
-        public void DisposeOutputs(int count)
+        public void RemoveNodes(int count)
         {
-            while (opacityEffects.Count > count)
+            while (CloneNodes.Count > count)
             {
-                opacityEffects[count].SetInput(0, null, true);
-                opacityEffects[count].Dispose();
-                opacityEffects.RemoveAt(count);
-            }
-            while (transforms.Count > count)
-            {
-                transforms[count].SetInput(0, null, true);
-                transforms[count].Dispose();
-                transforms.RemoveAt(count);
-            }
-            while (outputs.Count > count)
-            {
-                if(outputs[count] is ID2D1Image output) output.Dispose();
-                outputs.RemoveAt(count);
+                CloneNodes[count].Dispose();
+                CloneNodes.RemoveAt(count);
             }
         }
 
@@ -285,8 +377,8 @@ namespace CustumCloneEffectPlugin
             commandList?.Dispose();//最後のUpdateで作成したCommandListを破棄
             transformEffect.SetInput(0, null, true);//EffectのInputは必ずnullに戻す。
             transformEffect.Dispose();
-            DisposeOutputs(0);
-            output?.Dispose();//EffectからgetしたOutputは必ずDisposeする必要がある。Effect側では開放されない。
+            RemoveNodes(0);
+            Output.Dispose();//EffectからgetしたOutputは必ずDisposeする必要がある。Effect側では開放されない。
         }
     }
 }
