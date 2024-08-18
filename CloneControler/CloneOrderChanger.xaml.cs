@@ -61,6 +61,6 @@ namespace CustumCloneEffectPlugin.CloneControler
             var vm = DataContext as CloneOrderChangerViewModel;
             vm?.CopyToOtherItems();
             EndEdit?.Invoke(this, e);
-        }
+        }   
     }
 }

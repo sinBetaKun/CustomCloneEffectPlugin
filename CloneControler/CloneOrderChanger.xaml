@@ -35,6 +35,7 @@
                                       IsChecked="{Binding Appear, Mode=TwoWay}"/>
 
                             <StackPanel Margin="50,4,4,0" VerticalAlignment="Top" Orientation="Horizontal">
+                                <TextBlock Text="{Binding TagName}" Margin="0,0,5,0" VerticalAlignment="Center" Foreground="White"/>
                                 <TextBlock Text="{Binding Dst_X.Values[0].Value,StringFormat={}{0:F1}px}" Margin="0,0,5,0" VerticalAlignment="Center" Foreground="White"/>
                                 <TextBlock Text="{Binding Dst_Y.Values[0].Value,StringFormat={}{0:F1}px}" Margin="0,0,5,0" VerticalAlignment="Center" Foreground="White"/>
                             </StackPanel>
