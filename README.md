@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/998036b9-869a-4fa8-b643-6d7a3d0445bc)# CustomCloneEffectPlugin
+# CustomCloneEffectPlugin
 
 ![CustomCloneEffectDescription 2024-08-07 15-48-20](https://github.com/user-attachments/assets/cacdb391-c325-4d2a-b282-442da2dca239)
 ### 概要
