@@ -1,14 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Windows.Data;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using YukkuriMovieMaker.Commons;
-using Binding = System.Windows.Data.Binding;
-using System.ComponentModel;
 
 namespace CustumCloneEffectPlugin.CloneControler
 {

@@ -18,7 +18,7 @@
                 <ColumnDefinition Width="26"/>
             </Grid.ColumnDefinitions>
 
-            <ListBox Grid.Column="0" HorizontalContentAlignment="Stretch" ItemsSource="{Binding Path=Clones}" SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}" Name="list">
+            <ListBox Grid.Column="0" HorizontalContentAlignment="Stretch" ItemsSource="{Binding Path=Clones}" SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}" Name="list" ScrollViewer.CanContentScroll="False">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="Height" Value="30"/>

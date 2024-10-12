@@ -1,17 +1,9 @@
 ﻿using CustomCloneEffectPlugin;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
 using Vortice;
 using Vortice.Direct2D1;
 using Vortice.Direct2D1.Effects;
 using YukkuriMovieMaker.Commons;
 using YukkuriMovieMaker.Player.Video;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CustumCloneEffectPlugin
 {

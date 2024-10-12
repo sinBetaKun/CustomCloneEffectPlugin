@@ -1,13 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
 using YukkuriMovieMaker.Commons;
 
 namespace CustumCloneEffectPlugin.CloneControler
@@ -17,12 +9,12 @@ namespace CustumCloneEffectPlugin.CloneControler
         readonly INotifyPropertyChanged item;
         readonly ItemProperty[] properties;
 
-        List<SingleCloneInfo> clones = [];
+        ImmutableList<SingleCloneInfo> clones = [];
 
         public event EventHandler? BeginEdit;
         public event EventHandler? EndEdit;
 
-        public List<SingleCloneInfo> Clones { get => clones; set => Set(ref clones, value); }
+        public ImmutableList<SingleCloneInfo> Clones { get => clones; set => Set(ref clones, value); }
         public int SelectedIndex {get => selectedIndex; set => Set(ref selectedIndex, value); }
         int selectedIndex = 0;
 
@@ -45,10 +37,9 @@ namespace CustumCloneEffectPlugin.CloneControler
                 {
                     var tmpSelectedIndex = SelectedIndex;
                     BeginEdit?.Invoke(this, EventArgs.Empty);
-                    var clones = Clones.ToList();
-                    clones.Insert(tmpSelectedIndex + 1, new SingleCloneInfo());
+                    Clones = Clones.Insert(tmpSelectedIndex + 1, new SingleCloneInfo());
                     foreach (var property in properties)
-                        property.SetValue(clones.Select(x => new SingleCloneInfo(x)).ToImmutableList());
+                        property.SetValue(Clones);
                     EndEdit?.Invoke(this, EventArgs.Empty);
                     SelectedIndex = tmpSelectedIndex + 1;
                 });
@@ -59,10 +50,9 @@ namespace CustumCloneEffectPlugin.CloneControler
                 {
                     var tmpSelectedIndex = SelectedIndex;
                     BeginEdit?.Invoke(this, EventArgs.Empty);
-                    var clones = Clones.ToList();
-                    clones.RemoveAt(tmpSelectedIndex);
+                    Clones = Clones.RemoveAt(tmpSelectedIndex);
                     foreach (var property in properties)
-                        property.SetValue(clones.Select(x => new SingleCloneInfo(x)).ToImmutableList());
+                        property.SetValue(Clones);
                     EndEdit?.Invoke(this, EventArgs.Empty);
                     SelectedIndex = Math.Min(tmpSelectedIndex, clones.Count - 1);
                 });
@@ -73,11 +63,10 @@ namespace CustumCloneEffectPlugin.CloneControler
                 {
                     var tmpSelectedIndex = SelectedIndex;
                     BeginEdit?.Invoke(this, EventArgs.Empty);
-                    var clones = Clones.ToList();
                     var copied = new SingleCloneInfo(Clones[SelectedIndex]);
-                    clones.Insert(tmpSelectedIndex + 1, copied);
+                    Clones = Clones.Insert(tmpSelectedIndex + 1, copied);
                     foreach (var property in properties)
-                        property.SetValue(clones.Select(x => new SingleCloneInfo(x)).ToImmutableList());
+                        property.SetValue(Clones);
                     EndEdit?.Invoke(this, EventArgs.Empty);
                     SelectedIndex = tmpSelectedIndex + 1;
                 });
@@ -88,12 +77,10 @@ namespace CustumCloneEffectPlugin.CloneControler
                 {
                     var tmpSelectedIndex = SelectedIndex;
                     BeginEdit?.Invoke(this, EventArgs.Empty);
-                    var clones = Clones.ToList();
-                    var clone = clones[SelectedIndex];
-                    clones.RemoveAt(tmpSelectedIndex);
-                    clones.Insert(tmpSelectedIndex - 1, clone);
+                    var clone = Clones[SelectedIndex];
+                    Clones = Clones.RemoveAt(tmpSelectedIndex).Insert(tmpSelectedIndex - 1, clone);
                     foreach (var property in properties)
-                        property.SetValue(clones.Select(x => new SingleCloneInfo(x)).ToImmutableList());
+                        property.SetValue(Clones);
                     EndEdit?.Invoke(this, EventArgs.Empty);
                     SelectedIndex = tmpSelectedIndex - 1;
                 });
@@ -104,12 +91,10 @@ namespace CustumCloneEffectPlugin.CloneControler
                 {
                     var tmpSelectedIndex = SelectedIndex;
                     BeginEdit?.Invoke(this, EventArgs.Empty);
-                    var clones = Clones.ToList();
                     var clone = clones[SelectedIndex];
-                    clones.RemoveAt(tmpSelectedIndex);
-                    clones.Insert(tmpSelectedIndex + 1, clone);
+                    Clones = Clones.RemoveAt(tmpSelectedIndex).Insert(tmpSelectedIndex + 1, clone);
                     foreach (var property in properties)
-                        property.SetValue(clones.Select(x => new SingleCloneInfo(x)).ToImmutableList());
+                        property.SetValue(Clones);
                     EndEdit?.Invoke(this, EventArgs.Empty);
                     SelectedIndex = tmpSelectedIndex + 1;
                 });

@@ -5,10 +5,6 @@ using System.Numerics;
 using Vortice.Direct2D1.Effects;
 using Vortice.Direct2D1;
 using YukkuriMovieMaker.Commons;
-using System.Windows.Media.Effects;
-using Windows.Win32.UI.KeyboardAndMouseInput;
-using System.Windows;
-using System.Xml.Linq;
 
 namespace CustomCloneEffectPlugin
 {
